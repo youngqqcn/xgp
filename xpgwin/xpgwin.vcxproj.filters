@@ -45,6 +45,21 @@
     <ClInclude Include="f2pool.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="core.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="format.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="format-inl.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="date.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="xpgwin.cpp">
@@ -60,6 +75,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="f2pool.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="format.cc">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

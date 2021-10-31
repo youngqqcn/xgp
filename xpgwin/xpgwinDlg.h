@@ -23,8 +23,11 @@ public:
 
 // 实现
 protected:
-	CString m_strAccessToken;
+	CString m_cstrAccessToken;
+	bool  m_isStart;
+	HANDLE  m_hLoopThread;
 	HICON m_hIcon;
+
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
@@ -33,7 +36,6 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
-	afx_msg void OnBnClickedButton2();
 	afx_msg void OnBnClickedStart();
 	afx_msg void OnBnClickedLogin();
 };

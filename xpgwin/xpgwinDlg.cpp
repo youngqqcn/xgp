@@ -22,9 +22,25 @@
 #include "msp_cmn.h"
 #include "msp_errors.h"
 
+#include "json.hpp"
 
 #include "hiveon.h"
 
+#include "format.h"
+#include <algorithm>
+
+#include "date.h"
+#include <chrono>
+//using namespace date;
+using namespace chrono;
+#include <sstream>
+
+#include "utils.h"
+
+#include <vector>
+#include <map>
+#include <set>
+#include <deque>
 
 #include <mmsystem.h>
 #pragma comment(lib,"winmm.lib")
@@ -34,6 +50,7 @@
 #define new DEBUG_NEW
 #endif
 
+using namespace nlohmann;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -76,6 +93,8 @@ CxpgwinDlg::CxpgwinDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_XPGWIN_DIALOG, pParent)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	m_isStart = false;
+	m_hLoopThread = NULL;
 }
 
 void CxpgwinDlg::DoDataExchange(CDataExchange* pDX)
@@ -87,7 +106,6 @@ BEGIN_MESSAGE_MAP(CxpgwinDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_BN_CLICKED(IDC_BUTTON2, &CxpgwinDlg::OnBnClickedButton2)
 	ON_BN_CLICKED(IDSTART, &CxpgwinDlg::OnBnClickedStart)
 	ON_BN_CLICKED(IDC_LOGIN, &CxpgwinDlg::OnBnClickedLogin)
 END_MESSAGE_MAP()
@@ -125,6 +143,13 @@ BOOL CxpgwinDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	SetWindowText(_T("小钢炮专用监控程序v1.0"));
+	CFont outputFont;
+	outputFont.CreatePointFont(150, _T("微软雅黑"));
+	
+	
+	GetDlgItem(IDC_OUTPUT)->SetFont(&outputFont);
+
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -300,6 +325,7 @@ int text_to_speech(const char* src_text, const char* des_path, const char* param
 	return ret;
 }
 
+#if 0
 int generate()
 {
 	int         ret = MSP_SUCCESS;
@@ -348,39 +374,226 @@ exit:
 	return 0;
 }
 
+#endif
 
-
-
-void CxpgwinDlg::OnBnClickedButton2()
+int generate(string convText, int n)
 {
-	// TODO: 在此添加控件通知处理程序代码
-	if (!PlaySound(_T("D:/work/Windows_aisound_exp1226_01e9f2eb/bin/tts_sample.wav"), NULL, SND_FILENAME | SND_ASYNC))
+	int         ret = MSP_SUCCESS;
+	const char* login_params = "appid = 01e9f2eb, work_dir = .";//登录参数,appid与msc库绑定,请勿随意改动
+	/*
+	* rdn:           合成音频数字发音方式
+	* volume:        合成音频的音量
+	* pitch:         合成音频的音调
+	* speed:         合成音频对应的语速
+	* voice_name:    合成发音人
+	* sample_rate:   合成音频采样率
+	* text_encoding: 合成文本编码格式
+	*
+	*/
+	const char* session_begin_params = "engine_type = local, voice_name = xiaoyan, text_encoding = GB2312, tts_res_path = fo|res\\tts\\xiaoyan.jet;fo|res\\tts\\common.jet, sample_rate = 16000, speed = 35, volume = 50, pitch = 50, rdn = 2";
+	//const char* filename = "tts_sample.wav"; //合成的语音文件名称
+	string filename = fmt::format("myaudio_{}.wav", n);
+	//const char* text = convText.c_str();
+	/* 用户登录 */
+	ret = MSPLogin(NULL, NULL, login_params); //第一个参数是用户名，第二个参数是密码，第三个参数是登录参数，用户名和密码可在http://www.xfyun.cn注册获取
+	if (MSP_SUCCESS != ret)
 	{
-		AfxMessageBox(_T("播放失败"));
+		printf("MSPLogin failed, error code: %d.\n", ret);
+		goto exit;//登录失败，退出登录
 	}
+
+
+	/* 文本合成 */
+	printf("开始合成 ...\n");
+	ret = text_to_speech(convText.c_str(), filename.c_str(), session_begin_params);
+	if (MSP_SUCCESS != ret)
+	{
+		printf("text_to_speech failed, error code: %d.\n", ret);
+	}
+	printf("合成完毕\n");
+
+exit:
+	printf("按任意键退出 ...\n");
+	//_getch();
+	MSPLogout(); //退出登录
+
+	return 0;
+
 }
+
+
+
+
+
+DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam);
 
 
 // 开始监控掉线的矿机
 void CxpgwinDlg::OnBnClickedStart()
 {
-	// TODO: 在此添加控件通知处理程序代码
-		// HTTP
-	httplib::Client cli("https://api2.hiveos.farm");
-	cli.set_bearer_token_auth("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkyLmhpdmVvcy5mYXJtIiwiaWF0IjoxNjM0Mzc3NzQ4LCJleHAiOjE5NTExMjAxNDgsIm5iZiI6MTYzNDM3Nzc0OCwianRpIjo0NTIwNTIyMSwic3ViIjo0NTIwNTIyMSwicm1iIjp0cnVlfQ.JnoRzdFTRdB3F21wqzvxT3jooUYtEd4tpLhAOdBcM9g");
-	auto res = cli.Get("/api/v2/account");
-	// printf(res->body
-	// OutputDebugString(  res->body.c_str());
-
-	if (200 == res->status)
+	if(!m_isStart)
 	{
-		AfxMessageBox(_T("成功"));
+		m_hLoopThread = ::CreateThread(NULL, 0, LoopThreadProc, this, 0, NULL);
+		m_isStart = true;
+		GetDlgItem(IDSTART)->SetWindowText(_T("监控中..."));
+		GetDlgItem(IDSTART)->EnableWindow(0);
 	}
-	else
-	{
-		AfxMessageBox(_T("失败"));
-	}
+	//else
+	//{
+	//	//m_hLoopThread
+	//	if (::CloseHandle(m_hLoopThread))
+	//	{
+	//		GetDlgItem(IDSTART)->SetWindowText(_T("开始监控"));
+	//		m_isStart = false;
+	//	}
+	//	else
+	//	{
+	//		AfxMessageBox(_T("停止失败,请重试!"));
+	//	}
+	//}
 }
+
+
+DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
+{
+	CxpgwinDlg  *pDlg = static_cast<CxpgwinDlg*>(lpParam);
+	httplib::Client f2poolCli("https://api.f2pool.com");
+
+	while (1)
+	{
+		auto now = chrono::time_point_cast<std::chrono::seconds>(chrono::system_clock::now());
+		string ts = date::format("%F-%T", now + chrono::hours(8));
+		CWnd* pOutput = pDlg->GetDlgItem(IDC_OUTPUT);
+
+		CString cstrExceptWorker; // 要排除的机子编号
+		pDlg->GetDlgItem(IDC_EXCEPT)->GetWindowText(cstrExceptWorker);
+		string strExceptWorker = WCharToMByte(cstrExceptWorker.GetBuffer());
+		vector<string> vctExceptWorkers;
+		split(strExceptWorker, vctExceptWorkers, ',');
+		set<string> setExceptWorker(vctExceptWorkers.begin(), vctExceptWorkers.end());
+
+		try
+		{
+			// TODO: 在此添加控件通知处理程序代码
+			auto res = f2poolCli.Get("/eth/0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2");
+			if (!res || 200 != res->status)
+			{
+				CString cstrOld;
+				cstrOld += CString(fmt::format("[{}] - 获取地址:{}矿机信息失败\r\n", ts.c_str(), "0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2").c_str());
+				pOutput->SetWindowText(cstrOld);
+				::Sleep(10 * 1000);
+				continue;
+			}
+
+
+			// 转换为json
+			json d = json::parse(res->body);
+			auto workers = d["workers"];
+			vector<pair<int, string>>  vctOfflineWorkers;
+			const int IDX_NAME = 0; // 矿工名
+			const int IDX_TIME = 6; // 最后提交时间
+
+			for (int i = 0; i < workers.size(); i++)
+			{
+				string workerName = workers[i][IDX_NAME];
+				if (setExceptWorker.find(workerName) != setExceptWorker.end())
+				{
+					// 要排除的机子,直接跳过
+					continue;
+				}
+
+				string datetime = workers[i][IDX_TIME];
+				string trimDatetime = datetime.substr(0, datetime.find('.'));
+				std::istringstream input(trimDatetime);
+				date::sys_seconds tp;
+				input >> date::parse("%FT%T", tp);
+				auto last = chrono::time_point_cast<std::chrono::seconds>(tp);
+				auto du = now - last;
+
+				// 离线超过十分钟
+				if (10 * 60 < du.count() && du.count() < 60 * 60)
+				{
+					vctOfflineWorkers.push_back(make_pair(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
+				}
+				else if (3600 <= du.count() && du.count() < 24 * 3600) // 离线超过24小时的,不进行报警
+				{
+					char buf[100] = { 0 };
+					memset(buf, 0, sizeof(buf));
+					sprintf(buf, "%.1f", du.count() / 3600.0);
+					vctOfflineWorkers.push_back(make_pair(du.count(), "[" + ts + "] - " + workerName + "，离线" + string(buf) + "小时！"));
+				}
+			}
+
+			// 最近掉线的排在前面
+			sort(vctOfflineWorkers.begin(), vctOfflineWorkers.end(), [](pair<int, string>& a, pair<int, string>& b) {
+				return a.first < b.first;
+				});
+
+
+			CString cstrOutput;
+			if (vctOfflineWorkers.size() > 0)
+			{
+				for (auto name : vctOfflineWorkers)
+				{
+					cstrOutput += CString(name.second.c_str()) + _T("\r\n");
+				}
+
+				pOutput->SetWindowText(cstrOutput);
+
+				int nOfflineCount = vctOfflineWorkers.size();
+				string strAudioText = fmt::format("请注意！有{:d}台小钢炮，有{:d}台小钢炮，有{:d}台小钢炮，离线超过十分钟，请及时处理！",
+						nOfflineCount, nOfflineCount, nOfflineCount);
+
+				// 播放音频
+				generate(strAudioText, 0); // 语音合成
+				PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+			}
+			else
+			{
+				string msg = "[" + ts + "] - " + "恭喜！暂时没有小钢炮掉线.";
+				pOutput->SetWindowText(StringToLPCWSTR(msg));
+			}
+
+			::Sleep(1000 * 30);
+		}
+		catch (exception& e)
+		{
+			CString cstrOld;
+			cstrOld += CString(fmt::format("[{}] - {}, {}\r\n", ts.c_str(), "异常错误", e.what()).c_str());
+			pOutput->SetWindowText(cstrOld);
+		}
+		catch (...)
+		{
+			CString cstrOld;
+			cstrOld += CString(fmt::format("[{}] - {} \r\n", ts.c_str(), "未知错误" ).c_str());
+			pOutput->SetWindowText(cstrOld);
+		}
+	}
+
+	return 0;
+}
+
+
+
+
+//void CxpgwinDlg::OnBnClickedStart()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//	//
+//	// HTTP
+//	httplib::Client cli("https://api2.hiveos.farm");
+//	cli.set_bearer_token_auth(m_cstrAccessToken.GetBuffer());
+//	auto res = cli.Get("/api/v2/account");
+//
+//	if (200 == res->status)
+//	{
+//		AfxMessageBox(_T("成功"));
+//	}
+//	else
+//	{
+//		AfxMessageBox(_T("失败"));
+//	}
+//}
 
 
 void CxpgwinDlg::OnBnClickedLogin()
@@ -397,20 +610,20 @@ void CxpgwinDlg::OnBnClickedLogin()
 	GetDlgItem(IDC_TWOFA)->GetWindowText(cstrTwoFA);
 
 
-	string login = cstrEmail.GetBuffer();
-	string password = cstrPasswd.GetBuffer();
-	string twofa_code = cstrTwoFA.GetBuffer();
+	string login = WCharToMByte( cstrEmail.GetBuffer());
+	string password = WCharToMByte(cstrPasswd.GetBuffer());
+	string twofa_code = WCharToMByte(cstrTwoFA.GetBuffer());
 	bool remember = true;
 
 	try
 	{
 		string tmp = hive.login(login, password, twofa_code, remember);
-		m_strAccessToken = tmp.c_str();
-		OutputDebugStringA(m_strAccessToken);
+		m_cstrAccessToken = tmp.c_str();
+		OutputDebugString(m_cstrAccessToken);
 
 		// 写入文件保存
-		CFile file("token.data", CFile::modeCreate|CFile::modeWrite);
-		file.Write(m_strAccessToken.GetBuffer(), m_strAccessToken.GetLength());
+		CFile file(_T("token.data"), CFile::modeCreate|CFile::modeWrite);
+		file.Write(m_cstrAccessToken.GetBuffer(), m_cstrAccessToken.GetLength());
 		file.Close();
 	}
 	catch (exception& e)
