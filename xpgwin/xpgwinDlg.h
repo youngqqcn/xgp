@@ -28,6 +28,8 @@ protected:
 	HANDLE  m_hLoopThread;
 	HICON m_hIcon;
 
+	CRect m_wndRect;//保存窗口尺寸
+
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
@@ -38,4 +40,6 @@ protected:
 public:
 	afx_msg void OnBnClickedStart();
 	afx_msg void OnBnClickedLogin();
+	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnClose();
 };

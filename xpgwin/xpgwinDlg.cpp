@@ -8,40 +8,34 @@
 #include "xpgwinDlg.h"
 #include "afxdialogex.h"
 
-
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <windows.h>
 #include <conio.h>
 #include <errno.h>
-
-
-
-#include "qtts.h"
-#include "msp_cmn.h"
-#include "msp_errors.h"
-
-#include "json.hpp"
-
-#include "hiveon.h"
-
-#include "format.h"
 #include <algorithm>
-
-#include "date.h"
 #include <chrono>
-//using namespace date;
-using namespace chrono;
 #include <sstream>
-
-#include "utils.h"
-
 #include <vector>
 #include <map>
 #include <set>
 #include <deque>
 
+//-----
+// 科大讯飞语音合成
+#include "qtts.h"
+#include "msp_cmn.h"
+#include "msp_errors.h"
+//----------
+
+
+#include "json.hpp"
+#include "hiveon.h"
+#include "format.h"
+#include "date.h"
+#include "utils.h"
+
+// windows自带音频播放
 #include <mmsystem.h>
 #pragma comment(lib,"winmm.lib")
 
@@ -50,7 +44,7 @@ using namespace chrono;
 #define new DEBUG_NEW
 #endif
 
-using namespace nlohmann;
+//using namespace nlohmann;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -108,6 +102,8 @@ BEGIN_MESSAGE_MAP(CxpgwinDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDSTART, &CxpgwinDlg::OnBnClickedStart)
 	ON_BN_CLICKED(IDC_LOGIN, &CxpgwinDlg::OnBnClickedLogin)
+	ON_WM_SIZE()
+	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
 
@@ -143,13 +139,35 @@ BOOL CxpgwinDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+
+	GetClientRect(&m_wndRect);//获取窗口尺寸
+
+	// 设置标题
 	SetWindowText(_T("小钢炮专用监控程序v1.0"));
+
+	// 设置输出的字体
 	CFont outputFont;
 	outputFont.CreatePointFont(150, _T("微软雅黑"));
-	
-	
 	GetDlgItem(IDC_OUTPUT)->SetFont(&outputFont);
 
+	
+	// 设置参数
+	GetDlgItem(IDC_OFFTIME)->SetWindowText(_T("10")); // 离线时间阈值，默认10分钟
+	GetDlgItem(IDC_GAPTIME)->SetWindowText(_T("2"));  // 每次报警间隔时间，默认2分钟
+
+	// 设置监控钱包地址
+	CString cstrAddress;
+	cstrAddress += _T("0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2\r\n"); // w
+	cstrAddress += _T("0xa71f66a1faa36ae54ef8c3141bbdfc0aae3791ee\r\n"); // d
+	cstrAddress += _T("0x20f72f9bad243ac4d49101a29aa1cb180b933930\r\n"); // y
+	cstrAddress += _T("0xeb4e7964ee29122253c0e10c07ed6bcbfac19236\r\n"); // heihei 
+	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
+	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
+	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
+
+
+	// 最大化窗口
+	ShowWindow(SW_MAXIMIZE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -433,6 +451,7 @@ void CxpgwinDlg::OnBnClickedStart()
 {
 	if(!m_isStart)
 	{
+		// 创建监控线程
 		m_hLoopThread = ::CreateThread(NULL, 0, LoopThreadProc, this, 0, NULL);
 		m_isStart = true;
 		GetDlgItem(IDSTART)->SetWindowText(_T("监控中..."));
@@ -456,72 +475,132 @@ void CxpgwinDlg::OnBnClickedStart()
 
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 {
+	using namespace nlohmann;
 	CxpgwinDlg  *pDlg = static_cast<CxpgwinDlg*>(lpParam);
 	httplib::Client f2poolCli("https://api.f2pool.com");
 
 	while (1)
 	{
+		// 获取参数设置
+		int nOfflineTime = 10; // 离线报警阈值， 默认10分钟
+		int nGapTime = 2; // 每次报警间隔时间, 默认一分钟
+		{
+			CString cstrOffTime;
+			pDlg->GetDlgItem(IDC_OFFTIME)->GetWindowText(cstrOffTime);
+			cstrOffTime.Trim();
+			if (!cstrOffTime.IsEmpty())
+			{
+				nOfflineTime = _ttoi(cstrOffTime);
+			}
+
+			CString cstrGapTime;
+			cstrGapTime.Trim();
+			pDlg->GetDlgItem(IDC_GAPTIME)->GetWindowText(cstrGapTime);
+			if (!cstrGapTime.IsEmpty())
+			{
+				nGapTime = _ttoi(cstrGapTime);
+			}
+		}
+
+		// 获取监控钱包地址
+		vector<string> vctWalletAddress;
+		{
+			CString cstrAddress;
+			pDlg->GetDlgItem(IDC_ADDRESS)->GetWindowText(cstrAddress);
+			cstrAddress.Trim();
+			string strAddress = WCharToMByte(cstrAddress.GetBuffer());
+			split(strAddress, vctWalletAddress, "\r\n");
+		}
+
+		// 要排除的机子编号
+		set<string> setExceptWorker;
+		{
+			CString cstrExceptWorker;
+			pDlg->GetDlgItem(IDC_EXCEPT)->GetWindowText(cstrExceptWorker);
+			cstrExceptWorker.Trim();
+
+			string strExceptWorker = WCharToMByte(cstrExceptWorker.GetBuffer());
+			vector<string> vctExceptWorkers;
+			split(strExceptWorker, vctExceptWorkers, ',');
+			setExceptWorker.insert(vctExceptWorkers.begin(), vctExceptWorkers.end());
+		}
+
 		auto now = chrono::time_point_cast<std::chrono::seconds>(chrono::system_clock::now());
 		string ts = date::format("%F-%T", now + chrono::hours(8));
 		CWnd* pOutput = pDlg->GetDlgItem(IDC_OUTPUT);
 
-		CString cstrExceptWorker; // 要排除的机子编号
-		pDlg->GetDlgItem(IDC_EXCEPT)->GetWindowText(cstrExceptWorker);
-		string strExceptWorker = WCharToMByte(cstrExceptWorker.GetBuffer());
-		vector<string> vctExceptWorkers;
-		split(strExceptWorker, vctExceptWorkers, ',');
-		set<string> setExceptWorker(vctExceptWorkers.begin(), vctExceptWorkers.end());
 
 		try
 		{
-			// TODO: 在此添加控件通知处理程序代码
-			auto res = f2poolCli.Get("/eth/0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2");
-			if (!res || 200 != res->status)
-			{
-				CString cstrOld;
-				cstrOld += CString(fmt::format("[{}] - 获取地址:{}矿机信息失败\r\n", ts.c_str(), "0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2").c_str());
-				pOutput->SetWindowText(cstrOld);
-				::Sleep(10 * 1000);
-				continue;
-			}
-
-
-			// 转换为json
-			json d = json::parse(res->body);
-			auto workers = d["workers"];
 			vector<pair<int, string>>  vctOfflineWorkers;
+			int nOffline3060TiCount = 0; // 掉线的3060Ti
+			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
 			const int IDX_NAME = 0; // 矿工名
 			const int IDX_TIME = 6; // 最后提交时间
 
-			for (int i = 0; i < workers.size(); i++)
+			int nIndex = 0;
+			for (; nIndex < vctWalletAddress.size(); )
 			{
-				string workerName = workers[i][IDX_NAME];
-				if (setExceptWorker.find(workerName) != setExceptWorker.end())
+				string address = vctWalletAddress[nIndex];
+				auto res = f2poolCli.Get(fmt::format("/eth/{}", address).c_str());
+				if (!res || 200 != res->status)
 				{
-					// 要排除的机子,直接跳过
+					// CString cstrOld;
+					// cstrOld += CString(fmt::format("[{}] - 获取地址:{}矿机信息失败\r\n", ts.c_str(), address.c_str()).c_str());
+					// pOutput->SetWindowText(cstrOld);
+					::Sleep(2 * 1000);
 					continue;
 				}
+					
 
-				string datetime = workers[i][IDX_TIME];
-				string trimDatetime = datetime.substr(0, datetime.find('.'));
-				std::istringstream input(trimDatetime);
-				date::sys_seconds tp;
-				input >> date::parse("%FT%T", tp);
-				auto last = chrono::time_point_cast<std::chrono::seconds>(tp);
-				auto du = now - last;
+				// 转换为json
+				json d = json::parse(res->body);
+				auto workers = d["workers"];
 
-				// 离线超过十分钟
-				if (10 * 60 < du.count() && du.count() < 60 * 60)
+				for (int i = 0; i < workers.size(); i++)
 				{
-					vctOfflineWorkers.push_back(make_pair(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
+					string workerName = workers[i][IDX_NAME];
+					if (setExceptWorker.find(workerName) != setExceptWorker.end())
+					{
+						// 要排除的机子,直接跳过
+						continue;
+					}
+
+					string datetime = workers[i][IDX_TIME];
+					string trimDatetime = datetime.substr(0, datetime.find('.'));
+					std::istringstream input(trimDatetime);
+					date::sys_seconds tp;
+					input >> date::parse("%FT%T", tp);
+					auto last = chrono::time_point_cast<std::chrono::seconds>(tp);
+					auto du = now - last;
+
+					// 离线超过分钟
+					if (int64_t(nOfflineTime) * 60 < du.count() && du.count() < 24 * 3600)
+					{
+						// 统计3060Ti 和 小钢炮 离线数量
+						if (workerName.find("xgp") != string::npos) {
+							nOfflineXgpCount++;
+						}
+						else {
+							nOffline3060TiCount++;
+						}
+
+						if (du.count() < 60 * 60)
+						{
+							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
+						}
+						else if (3600 <= du.count())
+						{
+							char buf[100] = { 0 };
+							memset(buf, 0, sizeof(buf));
+							sprintf(buf, "%.1f", du.count() / 3600.0);
+							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + "，离线" + string(buf) + "小时！"));
+						}
+					}
+					// 离线超过24小时的,不进行报警
 				}
-				else if (3600 <= du.count() && du.count() < 24 * 3600) // 离线超过24小时的,不进行报警
-				{
-					char buf[100] = { 0 };
-					memset(buf, 0, sizeof(buf));
-					sprintf(buf, "%.1f", du.count() / 3600.0);
-					vctOfflineWorkers.push_back(make_pair(du.count(), "[" + ts + "] - " + workerName + "，离线" + string(buf) + "小时！"));
-				}
+			
+				nIndex++;
 			}
 
 			// 最近掉线的排在前面
@@ -529,32 +608,40 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				return a.first < b.first;
 				});
 
-
 			CString cstrOutput;
-			if (vctOfflineWorkers.size() > 0)
+			if (vctOfflineWorkers.empty())
 			{
-				for (auto name : vctOfflineWorkers)
-				{
-					cstrOutput += CString(name.second.c_str()) + _T("\r\n");
-				}
+				CString msg = _T("[") + CString(StringToLPCWSTR(ts)) + _T("] - ") + _T("恭喜！暂时没有小钢炮掉线。");
+				pOutput->SetWindowText(msg);
 
-				pOutput->SetWindowText(cstrOutput);
-
-				int nOfflineCount = vctOfflineWorkers.size();
-				string strAudioText = fmt::format("请注意！有{:d}台小钢炮，有{:d}台小钢炮，有{:d}台小钢炮，离线超过十分钟，请及时处理！",
-						nOfflineCount, nOfflineCount, nOfflineCount);
-
-				// 播放音频
-				generate(strAudioText, 0); // 语音合成
-				PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+			
 			}
-			else
+			for (auto name : vctOfflineWorkers)
 			{
-				string msg = "[" + ts + "] - " + "恭喜！暂时没有小钢炮掉线.";
-				pOutput->SetWindowText(StringToLPCWSTR(msg));
+				cstrOutput += CString(name.second.c_str()) + _T("\r\n");
 			}
 
-			::Sleep(1000 * 30);
+			pOutput->SetWindowText(cstrOutput);
+
+			string strAudioText = "请注意！";
+			if (nOffline3060TiCount > 0) {
+
+				string strChineseCount = convertInt2Chinese(nOffline3060TiCount);
+				strAudioText += fmt::format("有{}台3060钛，有{}台3060钛,",
+					strChineseCount, strChineseCount);
+			}
+			if (nOfflineXgpCount > 0) {
+				string strChineseCount = convertInt2Chinese(nOfflineXgpCount);
+				strAudioText += fmt::format("有{}台小钢炮，有{}台小钢炮，",
+					strChineseCount, strChineseCount);
+			}
+			strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
+
+			// 播放音频
+			generate(strAudioText, 0); // 语音合成
+			PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+
+			::Sleep(1000 * 60 * nGapTime);
 		}
 		catch (exception& e)
 		{
@@ -635,3 +722,55 @@ void CxpgwinDlg::OnBnClickedLogin()
 
 }
 
+
+
+void CxpgwinDlg::OnSize(UINT nType, int cx, int cy)
+{
+	CDialogEx::OnSize(nType, cx, cy);
+
+	// TODO: 在此处添加消息处理程序代码
+
+
+	// TODO: 在此处添加消息处理程序代码
+	//我这里只是演示，所以写的控件少。
+	vector<int> dlgitem = { IDC_OUTPUT, IDSTART, IDC_ADDRESS, 
+		IDC_EXCEPT,IDC_TWOFA,IDC_PASSWD,IDC_EMAIL,IDC_LOGIN,IDC_OFFTIME,IDC_GAPTIME,
+		IDC_STATIC2,
+		IDC_STATIC3,
+		IDC_STATIC5,
+		IDC_STATIC6,
+		IDC_STATIC7,
+		IDC_STATIC8,
+		IDC_STATIC9,
+		IDC_STATICHIVEOS,
+		IDC_STATICARGS,
+	};
+	for (int i = 0; i < dlgitem.size(); i++)//因为是多个控件，所以这里用了循环
+	{
+		CWnd* pWnd = GetDlgItem(dlgitem[i]);
+		//判断是否为空，因为对话框创建时会调用此函数，而当时控件还未创建
+		if (pWnd && nType != 1 && m_wndRect.Width() && m_wndRect.Height())
+		{
+			CRect rect;   //获取控件变化前的大小 
+			pWnd->GetWindowRect(&rect);
+			ScreenToClient(&rect);//将控件大小转换为在对话框中的区域坐标
+			rect.left = rect.left * cx / m_wndRect.Width();//调整控件大小
+			rect.right = rect.right * cx / m_wndRect.Width();
+			rect.top = rect.top * cy / m_wndRect.Height();
+			rect.bottom = rect.bottom * cy / m_wndRect.Height();
+			pWnd->MoveWindow(rect);//设置控件大小 
+		}
+	}
+	//重新获得窗口尺寸
+	GetClientRect(&m_wndRect);
+}
+
+
+void CxpgwinDlg::OnClose()
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (IDOK == MessageBox(_T("退出监控程序，将收不到离线语音提醒，是否继续退出？"), _T("提示"), MB_OKCANCEL))
+	{
+		CDialogEx::OnClose();
+	}
+}

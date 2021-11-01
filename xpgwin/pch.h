@@ -19,6 +19,8 @@
 #pragma comment(lib,"/../libs/msc.lib")//x86
 #endif
 
+#pragma warning(disable : 4996)   
+#pragma warning(disable : 4244)   
 
 #include <string>
 

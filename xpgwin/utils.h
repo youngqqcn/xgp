@@ -10,6 +10,18 @@ string num[10] = { "零","一","二","三","四","五","六","七","八","九" }; //一个汉
 
 static string convertInt2Chinese(int a)
 {
+    if (2 == a) {
+        return "两";
+    }
+
+    if (10 <= a && a < 20) {
+        string result = "十";
+        if (a - 10 > 0) {
+            result += num[a - 10];
+        }
+        return result;
+    }
+
     auto func = [](int a)-> string {
         int flag = 0, tmp;
         string strtmp;
@@ -106,7 +118,7 @@ string WCharToMByte(LPCWSTR lpcwszStr)
     dwMinSize = WideCharToMultiByte(CP_OEMCP, NULL, lpcwszStr, -1, NULL, 0, NULL, FALSE);
     if (0 == dwMinSize)
     {
-        return FALSE;
+        return "";
     }
     lpszStr = new char[dwMinSize];
     WideCharToMultiByte(CP_OEMCP, NULL, lpcwszStr, -1, lpszStr, dwMinSize, NULL, FALSE);
@@ -130,5 +142,24 @@ void split(const string& s, vector<string>& tokens, char delim = ' ') {
         tokens.emplace_back(s.substr(lastPos, pos - lastPos));
         lastPos = string_find_first_not(pos);
         pos = s.find(delim, lastPos);
+    }
+}
+
+
+void split(const string& str, vector<string> &res, const string& delim)
+{
+    if ("" == str) return;
+    //先将要切割的字符串从string类型转换为char*类型  
+    char* strs = new char[str.length() + 1]; //不要忘了  
+    strcpy(strs, str.c_str());
+
+    char* d = new char[delim.length() + 1];
+    strcpy(d, delim.c_str());
+
+    char* p = strtok(strs, d);
+    while (p) {
+        string s = p; //分割得到的字符串转换为string类型  
+        res.push_back(s); //存入结果数组  
+        p = strtok(NULL, d);
     }
 }
