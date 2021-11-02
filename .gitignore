@@ -33,3 +33,5 @@
 /obj
 /xpgwin/.vs/xpgwin/v16
 /bin
+
+*.aps

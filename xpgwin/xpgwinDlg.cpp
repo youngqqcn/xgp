@@ -584,7 +584,6 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						else {
 							nOffline3060TiCount++;
 						}
-
 						if (du.count() < 60 * 60)
 						{
 							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
