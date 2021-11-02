@@ -612,33 +612,37 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 			{
 				CString msg = _T("[") + CString(StringToLPCWSTR(ts)) + _T("] - ") + _T("恭喜！暂时没有小钢炮掉线。");
 				pOutput->SetWindowText(msg);
-
-			
 			}
-			for (auto name : vctOfflineWorkers)
+			else
 			{
-				cstrOutput += CString(name.second.c_str()) + _T("\r\n");
+				for (auto name : vctOfflineWorkers)
+				{
+					cstrOutput += CString(name.second.c_str()) + _T("\r\n");
+				}
+
+				pOutput->SetWindowText(cstrOutput);
+
+				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0)
+				{
+					string strAudioText = "请注意！";
+					if (nOffline3060TiCount > 0) {
+
+						string strChineseCount = convertInt2Chinese(nOffline3060TiCount);
+						strAudioText += fmt::format("有{}台3060钛，有{}台3060钛,",
+							strChineseCount, strChineseCount);
+					}
+					if (nOfflineXgpCount > 0) {
+						string strChineseCount = convertInt2Chinese(nOfflineXgpCount);
+						strAudioText += fmt::format("有{}台小钢炮，有{}台小钢炮，",
+							strChineseCount, strChineseCount);
+					}
+					strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
+
+					// 播放音频
+					generate(strAudioText, 0); // 语音合成
+					PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+				}
 			}
-
-			pOutput->SetWindowText(cstrOutput);
-
-			string strAudioText = "请注意！";
-			if (nOffline3060TiCount > 0) {
-
-				string strChineseCount = convertInt2Chinese(nOffline3060TiCount);
-				strAudioText += fmt::format("有{}台3060钛，有{}台3060钛,",
-					strChineseCount, strChineseCount);
-			}
-			if (nOfflineXgpCount > 0) {
-				string strChineseCount = convertInt2Chinese(nOfflineXgpCount);
-				strAudioText += fmt::format("有{}台小钢炮，有{}台小钢炮，",
-					strChineseCount, strChineseCount);
-			}
-			strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
-
-			// 播放音频
-			generate(strAudioText, 0); // 语音合成
-			PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
 
 			::Sleep(1000 * 60 * nGapTime);
 		}
