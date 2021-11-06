@@ -35,6 +35,10 @@
 #include "date.h"
 #include "utils.h"
 
+
+#include <iphlpapi.h>
+#pragma comment(lib, "Iphlpapi.lib") 
+
 // windows自带音频播放
 #include <mmsystem.h>
 #pragma comment(lib,"winmm.lib")
@@ -143,7 +147,7 @@ BOOL CxpgwinDlg::OnInitDialog()
 	GetClientRect(&m_wndRect);//获取窗口尺寸
 
 	// 设置标题
-	SetWindowText(_T("小钢炮专用监控程序v1.0"));
+	SetWindowText(_T("小钢炮专用监控程序v1.1"));
 
 	// 设置输出的字体
 	CFont outputFont;
@@ -152,8 +156,8 @@ BOOL CxpgwinDlg::OnInitDialog()
 
 	
 	// 设置参数
-	GetDlgItem(IDC_OFFTIME)->SetWindowText(_T("10")); // 离线时间阈值，默认10分钟
-	GetDlgItem(IDC_GAPTIME)->SetWindowText(_T("2"));  // 每次报警间隔时间，默认2分钟
+	GetDlgItem(IDC_OFFTIME)->SetWindowText(_T("15")); // 离线时间阈值，默认15分钟
+	GetDlgItem(IDC_GAPTIME)->SetWindowText(_T("10"));  // 每次报警间隔时间，默认10分钟
 
 	// 设置监控钱包地址
 	CString cstrAddress;
@@ -473,6 +477,17 @@ void CxpgwinDlg::OnBnClickedStart()
 }
 
 
+BOOL CheckIPReachable(const char* pszIpAddr)
+{
+	IPAddr ip = inet_addr(pszIpAddr);
+	ULONG ulHopCount, ulRTT;
+
+	BOOL  bRet = (BOOL)GetRTTAndHopCount(ip, &ulHopCount, 30/*最大hop数, 可自行设置*/, &ulRTT); //相当于  ping 
+	return bRet;
+}
+
+
+
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 {
 	using namespace nlohmann;
@@ -545,9 +560,37 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				auto res = f2poolCli.Get(fmt::format("/eth/{}", address).c_str());
 				if (!res || 200 != res->status)
 				{
-					// CString cstrOld;
-					// cstrOld += CString(fmt::format("[{}] - 获取地址:{}矿机信息失败\r\n", ts.c_str(), address.c_str()).c_str());
-					// pOutput->SetWindowText(cstrOld);
+					// 检查网关是否通
+					if (!CheckIPReachable("192.168.2.1"))
+					{
+						// 网关不通
+						pOutput->SetWindowText(_T("请注意, 网络异常:与网关192.168.2.1的连接不通, 请检查本机网线是否插好!"));
+						string strAudioText = "请注意, 网络异常: 拼不通网关,192点168点2点1, 请检查本机网线是否插好!";
+
+						// 播放音频
+						generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						::Sleep(60 * 1000);
+
+						throw std::runtime_error(" 网络异常: 拼不通网关,192.168.2.1, 请检查网线是否插好!");
+					}
+
+					// 检查网络连接是否正常
+					if (!CheckIPReachable("114.114.114.114") && !CheckIPReachable("114.114.114.114"))
+					{
+						// 网络问题
+						pOutput->SetWindowText(_T( "请注意，网络异常: 连接外网失败，请联系管理员检查网络！"));
+						string strAudioText = "请注意，网络异常: 连接外网失败, 请联系管理员检查网络！";
+
+						// 播放音频
+						generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						::Sleep(60 * 1000);
+
+						throw std::runtime_error("网络异常: 连接外网失败, 请联系管理员检查网络！");
+					}
+
+
 					::Sleep(2 * 1000);
 					continue;
 				}
@@ -666,25 +709,6 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 
 
-//void CxpgwinDlg::OnBnClickedStart()
-//{
-//	// TODO: 在此添加控件通知处理程序代码
-//	//
-//	// HTTP
-//	httplib::Client cli("https://api2.hiveos.farm");
-//	cli.set_bearer_token_auth(m_cstrAccessToken.GetBuffer());
-//	auto res = cli.Get("/api/v2/account");
-//
-//	if (200 == res->status)
-//	{
-//		AfxMessageBox(_T("成功"));
-//	}
-//	else
-//	{
-//		AfxMessageBox(_T("失败"));
-//	}
-//}
-
 
 void CxpgwinDlg::OnBnClickedLogin()
 {
@@ -731,8 +755,6 @@ void CxpgwinDlg::OnSize(UINT nType, int cx, int cy)
 {
 	CDialogEx::OnSize(nType, cx, cy);
 
-	// TODO: 在此处添加消息处理程序代码
-
 
 	// TODO: 在此处添加消息处理程序代码
 	//我这里只是演示，所以写的控件少。
@@ -777,3 +799,6 @@ void CxpgwinDlg::OnClose()
 		CDialogEx::OnClose();
 	}
 }
+
+
+
