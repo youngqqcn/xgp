@@ -561,13 +561,13 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				if (!res || 200 != res->status)
 				{
 					// 检查网关是否通
-					string strGatewayIp = "192.168.0.1";
+					string strGatewayIp = "192.168.1.1";
 					if (!CheckIPReachable(strGatewayIp.c_str()))
 					{
 						// 网关不通
 						string tipText = fmt::format("请注意, 网络异常:与网关{}的连接不通, 请检查本机网线是否插好!", strGatewayIp);
 						pOutput->SetWindowText(StringToLPCWSTR(tipText));
-						string strAudioText = "请注意, 网络异常: 拼不通网关,192点168点0点1, 请检查本机网线是否插好!";
+						string strAudioText = "请注意, 网络异常: 拼不通网关,请检查本机网线是否插好!";
 
 						// 播放音频
 						generate(strAudioText, 0); // 语音合成
