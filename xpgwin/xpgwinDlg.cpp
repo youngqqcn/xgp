@@ -482,7 +482,8 @@ BOOL CheckIPReachable(const char* pszIpAddr)
 	IPAddr ip = inet_addr(pszIpAddr);
 	ULONG ulHopCount, ulRTT;
 
-	BOOL  bRet = (BOOL)GetRTTAndHopCount(ip, &ulHopCount, 30/*最大hop数, 可自行设置*/, &ulRTT); //相当于  ping 
+	BOOL  bRet = FALSE; 
+	bRet = (BOOL)GetRTTAndHopCount(ip, &ulHopCount, 30/*最大hop数, 可自行设置*/, &ulRTT); //相当于  ping 
 	return bRet;
 }
 
@@ -529,6 +530,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 		// 要排除的机子编号
 		set<string> setExceptWorker;
+		setExceptWorker.insert("worker"); 
+
 		{
 			CString cstrExceptWorker;
 			pDlg->GetDlgItem(IDC_EXCEPT)->GetWindowText(cstrExceptWorker);
@@ -550,6 +553,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 			vector<pair<int, string>>  vctOfflineWorkers;
 			int nOffline3060TiCount = 0; // 掉线的3060Ti
 			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
+			int nA10UofflineCount = 0; // 掉线的A10U芯片机
 			const int IDX_NAME = 0; // 矿工名
 			const int IDX_TIME = 6; // 最后提交时间
 
@@ -562,7 +566,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				{
 					// 检查网关是否通
 					string strGatewayIp = "192.168.1.1";
-					if (!CheckIPReachable(strGatewayIp.c_str()))
+					if (FALSE == CheckIPReachable(strGatewayIp.c_str()))
 					{
 						// 网关不通
 						string tipText = fmt::format("请注意, 网络异常:与网关{}的连接不通, 请检查本机网线是否插好!", strGatewayIp);
@@ -578,7 +582,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					}
 
 					// 检查网络连接是否正常
-					if (!CheckIPReachable("114.114.114.114") && !CheckIPReachable("114.114.114.114"))
+					if (FALSE == CheckIPReachable("114.114.114.114") && FALSE == CheckIPReachable("114.114.114.114"))
 					{
 						// 网络问题
 						pOutput->SetWindowText(_T( "请注意，网络异常: 连接外网失败，请联系管理员检查网络！"));
@@ -626,9 +630,14 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						if (workerName.find("xgp") != string::npos) {
 							nOfflineXgpCount++;
 						}
+						if (workerName.find("a10u") != string::npos) {
+							nA10UofflineCount++;
+						}
 						else {
 							nOffline3060TiCount++;
 						}
+
+
 						if (du.count() < 60 * 60)
 						{
 							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
@@ -674,6 +683,11 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 						string strChineseCount = convertInt2Chinese(nOffline3060TiCount);
 						strAudioText += fmt::format("有{}台3060钛，有{}台3060钛,",
+							strChineseCount, strChineseCount);
+					}
+					if (nA10UofflineCount > 0) {
+						string strChineseCount = convertInt2Chinese(nA10UofflineCount);
+						strAudioText += fmt::format("有{}台芯动A10，有{}台芯动A10,",
 							strChineseCount, strChineseCount);
 					}
 					if (nOfflineXgpCount > 0) {
