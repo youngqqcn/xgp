@@ -630,7 +630,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						if (workerName.find("xgp") != string::npos) {
 							nOfflineXgpCount++;
 						}
-						if (workerName.find("a10u") != string::npos) {
+						else if (workerName.find("a10u") != string::npos) {
 							nA10UofflineCount++;
 						}
 						else {
@@ -676,7 +676,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 				pOutput->SetWindowText(cstrOutput);
 
-				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0)
+				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0 || nA10UofflineCount > 0)
 				{
 					string strAudioText = "请注意！";
 					if (nOffline3060TiCount > 0) {
