@@ -167,6 +167,8 @@ BOOL CxpgwinDlg::OnInitDialog()
 	cstrAddress += _T("0xeb4e7964ee29122253c0e10c07ed6bcbfac19236\r\n"); // heihei 
 	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
 	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
+
+	cstrAddress += _T("shishishu\r\n"); // btc
 	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
 
 
@@ -495,6 +497,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 	CxpgwinDlg  *pDlg = static_cast<CxpgwinDlg*>(lpParam);
 	httplib::Client f2poolCli("https://api.f2pool.com");
 
+
 	while (1)
 	{
 		// 获取参数设置
@@ -554,6 +557,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 			int nOffline3060TiCount = 0; // 掉线的3060Ti
 			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
 			int nA10UofflineCount = 0; // 掉线的A10U芯片机
+			int nAntMinerCount = 0; // 掉线的蚂蚁矿机
+
 			const int IDX_NAME = 0; // 矿工名
 			const int IDX_TIME = 6; // 最后提交时间
 
@@ -561,7 +566,18 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 			for (; nIndex < vctWalletAddress.size(); )
 			{
 				string address = vctWalletAddress[nIndex];
-				auto res = f2poolCli.Get(fmt::format("/eth/{}", address).c_str());
+				string endpoint;
+				bool isETH = true;
+				if (0 == address.find("0x")) {
+					endpoint = fmt::format("/eth/{}", address);
+				}
+				else {
+					// 鱼池子账户
+					endpoint = fmt::format("/bitcoin/{}", address);
+					isETH = false;
+				}
+
+				auto res = f2poolCli.Get(endpoint.c_str());
 				if (!res || 200 != res->status)
 				{
 					// 检查网关是否通
@@ -626,15 +642,22 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					// 离线超过分钟
 					if (int64_t(nOfflineTime) * 60 < du.count() && du.count() < 24 * 3600)
 					{
-						// 统计3060Ti 和 小钢炮 离线数量
-						if (workerName.find("xgp") != string::npos) {
-							nOfflineXgpCount++;
+						if (isETH) // 以太坊矿机
+						{
+							// 统计3060Ti 和 小钢炮 离线数量
+							if (workerName.find("xgp") != string::npos) {
+								nOfflineXgpCount++;
+							}
+							else if (workerName.find("a10u") != string::npos) {
+								nA10UofflineCount++;
+							}
+							else {
+								nOffline3060TiCount++;
+							}
 						}
-						else if (workerName.find("a10u") != string::npos) {
-							nA10UofflineCount++;
-						}
-						else {
-							nOffline3060TiCount++;
+						else // BTC 矿机
+						{
+							nAntMinerCount++;
 						}
 
 
@@ -676,7 +699,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 				pOutput->SetWindowText(cstrOutput);
 
-				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0 || nA10UofflineCount > 0)
+				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0 || nA10UofflineCount > 0 || nAntMinerCount > 0)
 				{
 					string strAudioText = "请注意！";
 					if (nOffline3060TiCount > 0) {
@@ -693,6 +716,11 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					if (nOfflineXgpCount > 0) {
 						string strChineseCount = convertInt2Chinese(nOfflineXgpCount);
 						strAudioText += fmt::format("有{}台小钢炮，有{}台小钢炮，",
+							strChineseCount, strChineseCount);
+					}
+					if (nAntMinerCount > 0) {
+						string strChineseCount = convertInt2Chinese(nAntMinerCount);
+						strAudioText += fmt::format("有{}台蚂蚁S19，有{}台蚂蚁S19，",
 							strChineseCount, strChineseCount);
 					}
 					strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
