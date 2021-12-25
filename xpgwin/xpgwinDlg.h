@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <atomic>
+
+#define WM_USER_NOTIFYICON WM_USER+1
 
 // CxpgwinDlg 对话框
 class CxpgwinDlg : public CDialogEx
@@ -20,11 +23,14 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
+private:
+	NOTIFYICONDATA m_notify;
+	int m_nCountdownSecs; // 倒计时（s）
 
 // 实现
 protected:
 	CString m_cstrAccessToken;
-	bool  m_isStart;
+	std::atomic<bool> m_isStart;
 	HANDLE  m_hLoopThread;
 	HICON m_hIcon;
 
@@ -37,8 +43,11 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+	afx_msg LRESULT OnNotifyMsg(WPARAM wparam, LPARAM lparam);
+	LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedStart();
 	afx_msg void OnBnClickedLogin();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnClose();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 };

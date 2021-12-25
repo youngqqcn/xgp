@@ -104,6 +104,8 @@ CxpgwinDlg::CxpgwinDlg(CWnd* pParent /*=nullptr*/)
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_isStart = false;
 	m_hLoopThread = NULL;
+
+	m_nCountdownSecs = 5;
 }
 
 void CxpgwinDlg::DoDataExchange(CDataExchange* pDX)
@@ -119,6 +121,8 @@ BEGIN_MESSAGE_MAP(CxpgwinDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_LOGIN, &CxpgwinDlg::OnBnClickedLogin)
 	ON_WM_SIZE()
 	ON_WM_CLOSE()
+	ON_MESSAGE(WM_USER_NOTIFYICON, OnNotifyMsg)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -155,6 +159,21 @@ BOOL CxpgwinDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 
+	// https ://blog.csdn.net/csf111/article/details/6980508
+	m_notify.cbSize = sizeof NOTIFYICONDATA;
+	m_notify.hWnd = this->m_hWnd;
+	m_notify.uID = IDR_MAINFRAME;
+	m_notify.hIcon = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDR_MAINFRAME));
+	StrCpyW(m_notify.szTip, _T("矿机监控程序"));
+	m_notify.uCallbackMessage = WM_USER_NOTIFYICON;
+	m_notify.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP; //OK,下面就是托盘产生了. 
+	Shell_NotifyIcon(NIM_ADD, &m_notify);
+
+
+	// 禁用开始按钮，因为程序会自动开始
+	GetDlgItem(IDSTART)->EnableWindow(0);
+
+
 	GetClientRect(&m_wndRect);//获取窗口尺寸
 
 	// 设置标题
@@ -184,6 +203,10 @@ BOOL CxpgwinDlg::OnInitDialog()
 	cstrAddress += _T("shishishu\r\n"); // btc
 	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
 
+
+
+	// 设置定时器，启动5s后自动开始监控
+	SetTimer(1, 1000, NULL);
 
 	// 读取config.conf中的内容
 	//CFile file;// ;
@@ -498,7 +521,11 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam);
 // 开始监控掉线的矿机
 void CxpgwinDlg::OnBnClickedStart()
 {
-	if(!m_isStart)
+
+	// bool exp = false;
+	// m_isStart.compare_exchange_strong(exp, true);
+
+	if(!m_isStart.load())
 	{
 		// 创建监控线程
 		m_hLoopThread = ::CreateThread(NULL, 0, LoopThreadProc, this, 0, NULL);
@@ -670,9 +697,6 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 		try
 		{
-		
-
-
 			vector<pair<int, string>>  vctOfflineWorkers;
 			int nOffline3060TiCount = 0; // 掉线的3060Ti
 			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
@@ -1024,4 +1048,109 @@ void CxpgwinDlg::OnClose()
 }
 
 
+LRESULT  CxpgwinDlg::OnNotifyMsg(WPARAM wparam, LPARAM lparam)
+//wParam接收的是图标的ID，而lParam接收的是鼠标的行为   
+{
+	if (wparam != IDR_MAINFRAME)
+	{
+		return    1;
+	}
 
+	switch (lparam)
+	{
+	//case  WM_RBUTTONUP://右键起来时弹出快捷菜单，这里只有一个“关闭”   
+	//{
+	//	LPPOINT    lpoint = new    tagPOINT;
+	//	::GetCursorPos(lpoint);//得到鼠标位置   
+	//	CMenu    menu;
+	//	menu.CreatePopupMenu();//声明一个弹出式菜单   
+	//	//增加菜单项“关闭”，点击则发送消WM_CLOSE给主窗口（已隐藏）   
+	//	// menu.AppendMenu(MF_STRING, WM_DESTROY, _T("关闭"));
+	//	menu.AppendMenu(MF_STRING, WM_CLOSE, _T("关闭"));
+	//	//确定弹出式菜单的位置   
+	//	menu.TrackPopupMenu(TPM_LEFTALIGN, lpoint->x, lpoint->y, this);
+	//	//资源回收   
+	//	HMENU    hmenu = menu.Detach();
+	//	menu.DestroyMenu();
+	//	delete    lpoint;
+	//}
+	//break;
+	case    WM_LBUTTONUP: //左键的处理   
+	{
+		this->ShowWindow(SW_SHOW);// 显示主窗口   
+	}
+	break;
+	}
+	return 0;
+}
+
+
+
+//WindowProc中增加的代码
+LRESULT CxpgwinDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	switch (message) //判断消息类型
+	{
+	case WM_USER_NOTIFYICON:
+		//如果是用户定义的消息 
+		if (lParam == WM_LBUTTONDBLCLK)
+		{
+			//鼠标双击时主窗口出现 
+			if (AfxGetApp()->m_pMainWnd->IsWindowVisible()) //判断窗口当前状态
+			{
+				AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE); //隐藏窗口
+			}
+			else
+			{
+				AfxGetApp()->m_pMainWnd->ShowWindow(SW_SHOW); //显示窗口
+			}
+
+		}
+		break;
+	case WM_SYSCOMMAND:
+		//如果是系统消息 
+		if (wParam == SC_MINIMIZE)
+		{
+			//接收到最小化消息时主窗口隐藏 
+			AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE);
+			return 0;
+		}
+		if (wParam == SC_CLOSE)
+		{
+			::Shell_NotifyIcon(NIM_DELETE, &m_notify); //关闭时删除系统托盘图标
+		}
+		break;
+	}
+	return CDialog::WindowProc(message, wParam, lParam);
+}
+
+
+void CxpgwinDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	switch (nIDEvent)
+	{
+	case 1:
+		if (m_nCountdownSecs > 0)
+		{
+			CString strText;
+			strText.Format(_T("开始监控（%ds)"), m_nCountdownSecs);
+			GetDlgItem(IDSTART)->SetWindowText(strText);
+			//GetDlgItem(IDSTART)->EnableWindow(0);
+			m_nCountdownSecs--;
+		}
+		if (m_nCountdownSecs <= 0)
+		{
+			OnBnClickedStart();
+			//GetDlgItem(IDSTART)->SetWindowText(_T("监控中..."));
+			//GetDlgItem(IDSTART)->EnableWindow(0);
+			while(!KillTimer(1)){}
+		}
+		break;
+	default:
+		break;
+	}
+
+	CDialogEx::OnTimer(nIDEvent);
+}
