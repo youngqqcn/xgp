@@ -7,6 +7,7 @@
 #include "xpgwin.h"
 #include "xpgwinDlg.h"
 #include "afxdialogex.h"
+#include "verifydlg.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,6 +39,16 @@
 
 #include <iphlpapi.h>
 #pragma comment(lib, "Iphlpapi.lib") 
+
+#include <winsock2.h>
+#include <iphlpapi.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#pragma comment(lib, "IPHLPAPI.lib")
+
+#define MALLOC(x) HeapAlloc(GetProcessHeap(), 0, (x))
+#define FREE(x) HeapFree(GetProcessHeap(), 0, (x))
+
 
 // windows自带音频播放
 #include <mmsystem.h>
@@ -164,12 +175,45 @@ BOOL CxpgwinDlg::OnInitDialog()
 	cstrAddress += _T("0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2\r\n"); // w
 	cstrAddress += _T("0xa71f66a1faa36ae54ef8c3141bbdfc0aae3791ee\r\n"); // d
 	cstrAddress += _T("0x20f72f9bad243ac4d49101a29aa1cb180b933930\r\n"); // y
-	cstrAddress += _T("0xeb4e7964ee29122253c0e10c07ed6bcbfac19236\r\n"); // heihei 
+	cstrAddress += _T("0x58a4c426df0804c5f852b4aee56e659c4453f8f7\r\n"); // heihei 
 	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
 	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
+	cstrAddress += _T("0xcc26c8ffd21aa299929db453ab9014d560143ef6\r\n"); // bg
+	cstrAddress += _T("0x4209fe3d6fd9248eb743fee7090304beaed1f522\r\n"); // wan
 
 	cstrAddress += _T("shishishu\r\n"); // btc
 	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
+
+
+	// 读取config.conf中的内容
+	//CFile file;// ;
+	//CFileException ex;
+	//if (file.Open(_T("config.dat"), CFile::modeRead | CFile::typeText, &ex))
+	//{
+	//	char buf[1024] = { 0 };
+	//	memset(buf, 0, sizeof(buf));
+	//	int nSize = file.Read(buf, sizeof(buf));
+	//	if (nSize > 0)
+	//	{
+	//		CString cstrConf(buf);
+	//		GetDlgItem(IDC_EXCEPT)->SetWindowText(cstrConf);
+	//	}
+	//	file.Close();
+	//}
+
+	/*
+	FILE* fp = fopen("config.dat", "r");
+	if (NULL != fp)
+	{
+		char buf[1024] = { 0 };
+		memset(buf, 0, sizeof(buf));
+		int size = fread(buf, 1, sizeof(buf), fp);
+		if (size > 0)
+		{
+			string s(buf);
+			GetDlgItem(IDC_EXCEPT)->SetWindowText(StringToLPCWSTR(s));
+		}
+	}*/
 
 
 	// 最大化窗口
@@ -442,7 +486,6 @@ exit:
 	MSPLogout(); //退出登录
 
 	return 0;
-
 }
 
 
@@ -487,6 +530,79 @@ BOOL CheckIPReachable(const char* pszIpAddr)
 	BOOL  bRet = FALSE; 
 	bRet = (BOOL)GetRTTAndHopCount(ip, &ulHopCount, 30/*最大hop数, 可自行设置*/, &ulRTT); //相当于  ping 
 	return bRet;
+}
+
+
+
+// 参考: https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersinfo
+// 检查VPN的连接状态
+BOOL CheckVPNConnection()
+{
+	char szVpnName[] =  "hongkong";
+
+	/* Declare and initialize variables */
+	// It is possible for an adapter to have multiple
+	// IPv4 addresses, gateways, and secondary WINS servers
+	// assigned to the adapter. 
+	//
+	// Note that this sample code only prints out the 
+	// first entry for the IP address/mask, and gateway, and
+	// the primary and secondary WINS server for each adapter. 
+
+	PIP_ADAPTER_INFO pAdapterInfo;
+	PIP_ADAPTER_INFO pAdapter = NULL;
+	DWORD dwRetVal = 0;
+	//UINT i;
+
+	/* variables used to print DHCP time info */
+	//struct tm newtime;
+	//char buffer[32];
+	// errno_t error;
+
+	ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+	pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(sizeof(IP_ADAPTER_INFO));
+	if (pAdapterInfo == NULL) 
+	{
+		printf("Error allocating memory needed to call GetAdaptersinfo\n");
+		return FALSE;
+	}
+
+	// Make an initial call to GetAdaptersInfo to get
+	// the necessary size into the ulOutBufLen variable
+	if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) 
+	{
+		FREE(pAdapterInfo);
+		pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(ulOutBufLen);
+		if (pAdapterInfo == NULL) 
+		{
+			printf("Error allocating memory needed to call GetAdaptersinfo\n");
+			return FALSE;
+		}
+	}
+
+	if ((dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen)) == NO_ERROR) 
+	{
+		pAdapter = pAdapterInfo;
+		while (pAdapter) 
+		{
+			if (MIB_IF_TYPE_PPP == pAdapter->Type  && 0 == strcmp(pAdapter->Description, szVpnName))
+			{
+				return TRUE;
+			}
+			pAdapter = pAdapter->Next;
+		}
+	}
+	else 
+	{
+		printf("GetAdaptersInfo failed with error: %d\n", dwRetVal);
+	}
+
+	if (pAdapterInfo) 
+	{
+		FREE(pAdapterInfo);
+	}
+
+	return FALSE;
 }
 
 
@@ -551,8 +667,12 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 		CWnd* pOutput = pDlg->GetDlgItem(IDC_OUTPUT);
 
 
+
 		try
 		{
+		
+
+
 			vector<pair<int, string>>  vctOfflineWorkers;
 			int nOffline3060TiCount = 0; // 掉线的3060Ti
 			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
@@ -581,7 +701,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				if (!res || 200 != res->status)
 				{
 					// 检查网关是否通
-					string strGatewayIp = "192.168.1.1";
+					string strGatewayIp = "192.168.31.1";
 					if (FALSE == CheckIPReachable(strGatewayIp.c_str()))
 					{
 						// 网关不通
@@ -598,7 +718,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					}
 
 					// 检查网络连接是否正常
-					if (FALSE == CheckIPReachable("114.114.114.114") && FALSE == CheckIPReachable("114.114.114.114"))
+					if (FALSE == CheckIPReachable("8.8.8.8") && FALSE == CheckIPReachable("8.8.8.8"))
 					{
 						// 网络问题
 						pOutput->SetWindowText(_T( "请注意，网络异常: 连接外网失败，请联系管理员检查网络！"));
@@ -610,6 +730,21 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						::Sleep(60 * 1000);
 
 						throw std::runtime_error("网络异常: 连接外网失败, 请联系管理员检查网络！");
+					}
+
+					// 检查VPN连接
+					if (!CheckVPNConnection())
+					{
+						// VPN不通
+						pOutput->SetWindowText(_T("请注意, 网络异常:没有翻墙, 请重新连接香港VPN!"));
+						string strAudioText = "请注意, 网络异常:没有翻墙, 请重新连接香港VPN!";
+
+						// 播放音频
+						generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						::Sleep(60 * 1000);
+
+						throw std::runtime_error(strAudioText);
 					}
 
 
@@ -625,7 +760,21 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				for (int i = 0; i < workers.size(); i++)
 				{
 					string workerName = workers[i][IDX_NAME];
-					if (setExceptWorker.find(workerName) != setExceptWorker.end())
+					//if (workerName.find("lai") != string::npos || workerName.find("rong") != string::npos
+					//	|| workerName.find("sheng") != string::npos || workerName.find("xi") != string::npos
+					//	|| workerName.find("f") == 0 /* || workerName.find("xgp") != string::npos*/
+					//	|| workerName.find("dataland") != string::npos || workerName.find("dland") != string::npos
+					//	|| workerName.find("sapphire") != string::npos
+					//	|| workerName.find("baipai") != string::npos
+					//	|| workerName.find("panda") != string::npos
+					//	|| workerName.find("x588x8") != string::npos
+					//	|| workerName.find("usb001") != string::npos
+					//	|| workerName.find("wz2019") != string::npos
+					//	)
+					//{
+					//	continue;
+					//}
+					if (workerName.empty() || " " == workerName || setExceptWorker.find(workerName) != setExceptWorker.end())
 					{
 						// 要排除的机子,直接跳过
 						continue;
@@ -645,14 +794,17 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						if (isETH) // 以太坊矿机
 						{
 							// 统计3060Ti 和 小钢炮 离线数量
-							if (workerName.find("xgp") != string::npos) {
-								nOfflineXgpCount++;
+							//if (workerName.find("580") != string::npos) {
+							//	nOfflineXgpCount++;
+							//}
+							if (workerName.find("3060") != string::npos || workerName.find("1660") != string::npos) {
+								nOffline3060TiCount++;
 							}
 							else if (workerName.find("a10u") != string::npos) {
 								nA10UofflineCount++;
 							}
 							else {
-								nOffline3060TiCount++;
+								nOfflineXgpCount++;
 							}
 						}
 						else // BTC 矿机
@@ -838,10 +990,37 @@ void CxpgwinDlg::OnSize(UINT nType, int cx, int cy)
 void CxpgwinDlg::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	if (IDOK == MessageBox(_T("退出监控程序，将收不到离线语音提醒，是否继续退出？"), _T("提示"), MB_OKCANCEL))
+	// if (IDOK == MessageBox(_T("退出监控程序，将收不到离线语音提醒，是否继续退出？"), _T("提示"), MB_OKCANCEL))
+	// if (IDOK == MessageBox(_T("监控程序，将收不到离线语音提醒，是否继续退出？"), _T("提示"), MB_OKCANCEL))
+	//{
+		// CDialogEx::OnClose();
+	//}
+
+	CVerifyDlg verifyDlg;
+	INT_PTR nRes = verifyDlg.DoModal();
+	if (IDOK == nRes)
 	{
+		// 保存一些设置到文件
+	/*	CString cstrExceptWorker;
+		GetDlgItem(IDC_EXCEPT)->GetWindowText(cstrExceptWorker);
+		cstrExceptWorker.Trim();
+		if (!cstrExceptWorker.IsEmpty())
+		{
+			CFile file;
+			CFileException ex;
+			if (file.Open(_T("config.dat"), CFile::modeWrite | CFile::modeCreate | CFile::typeText, &ex))
+			{
+				file.SeekToBegin();
+				file.Write(cstrExceptWorker.GetBuffer(), cstrExceptWorker.GetLength());
+				file.Flush();
+				file.Close();
+			}
+		
+		}*/
+
 		CDialogEx::OnClose();
 	}
+	// 其他消息忽略
 }
 
 

@@ -30,7 +30,6 @@ protected:
 
 	CRect m_wndRect;//保存窗口尺寸
 
-
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);

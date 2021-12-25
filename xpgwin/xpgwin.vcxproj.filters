@@ -60,6 +60,9 @@
     <ClInclude Include="utils.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="verifydlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="xpgwin.cpp">
@@ -78,6 +81,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="format.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="verifydlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
