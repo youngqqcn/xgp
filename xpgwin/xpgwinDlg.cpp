@@ -194,13 +194,19 @@ BOOL CxpgwinDlg::OnInitDialog()
 	cstrAddress += _T("0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2\r\n"); // w
 	cstrAddress += _T("0xa71f66a1faa36ae54ef8c3141bbdfc0aae3791ee\r\n"); // d
 	cstrAddress += _T("0x20f72f9bad243ac4d49101a29aa1cb180b933930\r\n"); // y
-	cstrAddress += _T("0x58a4c426df0804c5f852b4aee56e659c4453f8f7\r\n"); // heihei 
+	//cstrAddress += _T("0x58a4c426df0804c5f852b4aee56e659c4453f8f7\r\n"); // heihei 
+	cstrAddress += _T("heizai\r\n");
 	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
 	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
 	cstrAddress += _T("0xcc26c8ffd21aa299929db453ab9014d560143ef6\r\n"); // bg
 	cstrAddress += _T("0x4209fe3d6fd9248eb743fee7090304beaed1f522\r\n"); // wan
 
-	cstrAddress += _T("shishishu\r\n"); // btc
+	{
+		CString cstrBtcAddr = _T("shishishu\r\n"); // btc
+		cstrAddress += cstrBtcAddr; 
+		m_btcAddrs.insert(cstrBtcAddr.Trim());
+	}
+
 	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
 
 
@@ -712,7 +718,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				string address = vctWalletAddress[nIndex];
 				string endpoint;
 				bool isETH = true;
-				if (0 == address.find("0x")) {
+				if (pDlg->m_btcAddrs.end() == pDlg->m_btcAddrs.find(CString(address.c_str()))  ) {
 					endpoint = fmt::format("/eth/{}", address);
 				}
 				else {

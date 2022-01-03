@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <set>
 
 #define WM_USER_NOTIFYICON WM_USER+1
 
@@ -27,13 +28,17 @@ private:
 	NOTIFYICONDATA m_notify;
 	int m_nCountdownSecs; // 倒计时（s）
 
+public:
+	std::set<CString>  m_btcAddrs;
+
+
 // 实现
 protected:
 	CString m_cstrAccessToken;
 	std::atomic<bool> m_isStart;
 	HANDLE  m_hLoopThread;
 	HICON m_hIcon;
-
+	
 	CRect m_wndRect;//保存窗口尺寸
 
 	// 生成的消息映射函数
