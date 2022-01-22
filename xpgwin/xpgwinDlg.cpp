@@ -159,15 +159,15 @@ BOOL CxpgwinDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 
-	// https ://blog.csdn.net/csf111/article/details/6980508
-	m_notify.cbSize = sizeof NOTIFYICONDATA;
-	m_notify.hWnd = this->m_hWnd;
-	m_notify.uID = IDR_MAINFRAME;
-	m_notify.hIcon = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDR_MAINFRAME));
-	StrCpyW(m_notify.szTip, _T("矿机监控程序"));
-	m_notify.uCallbackMessage = WM_USER_NOTIFYICON;
-	m_notify.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP; //OK,下面就是托盘产生了. 
-	Shell_NotifyIcon(NIM_ADD, &m_notify);
+	//// https ://blog.csdn.net/csf111/article/details/6980508
+	//m_notify.cbSize = sizeof NOTIFYICONDATA;
+	//m_notify.hWnd = this->m_hWnd;
+	//m_notify.uID = IDR_MAINFRAME;
+	//m_notify.hIcon = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDR_MAINFRAME));
+	//StrCpyW(m_notify.szTip, _T("矿机监控程序"));
+	//m_notify.uCallbackMessage = WM_USER_NOTIFYICON;
+	//m_notify.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP; //OK,下面就是托盘产生了. 
+	//Shell_NotifyIcon(NIM_ADD, &m_notify);
 
 
 	// 禁用开始按钮，因为程序会自动开始
@@ -199,7 +199,8 @@ BOOL CxpgwinDlg::OnInitDialog()
 	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
 	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
 	cstrAddress += _T("0xcc26c8ffd21aa299929db453ab9014d560143ef6\r\n"); // bg
-	cstrAddress += _T("0x4209fe3d6fd9248eb743fee7090304beaed1f522\r\n"); // wan
+	//cstrAddress += _T("0x789bd97fcec67912a427025ac59a1c45b506980f\r\n"); // wan
+	cstrAddress += _T("z18978645557\r\n");  // wan
 
 	{
 		CString cstrBtcAddr = _T("shishishu\r\n"); // btc
@@ -1096,38 +1097,38 @@ LRESULT  CxpgwinDlg::OnNotifyMsg(WPARAM wparam, LPARAM lparam)
 LRESULT CxpgwinDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	// TODO: Add your specialized code here and/or call the base class
-	switch (message) //判断消息类型
-	{
-	case WM_USER_NOTIFYICON:
-		//如果是用户定义的消息 
-		if (lParam == WM_LBUTTONDBLCLK)
-		{
-			//鼠标双击时主窗口出现 
-			if (AfxGetApp()->m_pMainWnd->IsWindowVisible()) //判断窗口当前状态
-			{
-				AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE); //隐藏窗口
-			}
-			else
-			{
-				AfxGetApp()->m_pMainWnd->ShowWindow(SW_SHOW); //显示窗口
-			}
+	//switch (message) //判断消息类型
+	//{
+	//case WM_USER_NOTIFYICON:
+	//	//如果是用户定义的消息 
+	//	if (lParam == WM_LBUTTONDBLCLK)
+	//	{
+	//		//鼠标双击时主窗口出现 
+	//		if (AfxGetApp()->m_pMainWnd->IsWindowVisible()) //判断窗口当前状态
+	//		{
+	//			AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE); //隐藏窗口
+	//		}
+	//		else
+	//		{
+	//			AfxGetApp()->m_pMainWnd->ShowWindow(SW_SHOW); //显示窗口
+	//		}
 
-		}
-		break;
-	case WM_SYSCOMMAND:
-		//如果是系统消息 
-		if (wParam == SC_MINIMIZE)
-		{
-			//接收到最小化消息时主窗口隐藏 
-			AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE);
-			return 0;
-		}
-		if (wParam == SC_CLOSE)
-		{
-			::Shell_NotifyIcon(NIM_DELETE, &m_notify); //关闭时删除系统托盘图标
-		}
-		break;
-	}
+	//	}
+	//	break;
+	//case WM_SYSCOMMAND:
+	//	//如果是系统消息 
+	//	if (wParam == SC_MINIMIZE)
+	//	{
+	//		//接收到最小化消息时主窗口隐藏 
+	//		AfxGetApp()->m_pMainWnd->ShowWindow(SW_HIDE);
+	//		return 0;
+	//	}
+	//	if (wParam == SC_CLOSE)
+	//	{
+	//		::Shell_NotifyIcon(NIM_DELETE, &m_notify); //关闭时删除系统托盘图标
+	//	}
+	//	break;
+	//}
 	return CDialog::WindowProc(message, wParam, lParam);
 }
 
