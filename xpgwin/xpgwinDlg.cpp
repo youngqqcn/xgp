@@ -507,6 +507,7 @@ int generate(string convText, int n)
 	if (MSP_SUCCESS != ret)
 	{
 		printf("text_to_speech failed, error code: %d.\n", ret);
+		goto exit;
 	}
 	printf("合成完毕\n");
 
@@ -732,7 +733,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 				if (!res || 200 != res->status)
 				{
 					// 检查网关是否通
-					string strGatewayIp = "192.168.31.1";
+					string strGatewayIp = "192.168.1.1";
 					if (FALSE == CheckIPReachable(strGatewayIp.c_str()))
 					{
 						// 网关不通
@@ -741,8 +742,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						string strAudioText = "请注意, 网络异常: 拼不通网关,请检查本机网线是否插好!";
 
 						// 播放音频
-						generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						// generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
 						::Sleep(60 * 1000);
 
 						throw std::runtime_error(fmt::format("网络异常: 拼不通网关,{}, 请检查网线是否插好!", strGatewayIp));
@@ -756,8 +757,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						string strAudioText = "请注意，网络异常: 连接外网失败, 请联系管理员检查网络！";
 
 						// 播放音频
-						generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						//generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
 						::Sleep(60 * 1000);
 
 						throw std::runtime_error("网络异常: 连接外网失败, 请联系管理员检查网络！");
@@ -771,8 +772,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 						string strAudioText = "请注意, 网络异常:没有翻墙, 请重新连接香港VPN!";
 
 						// 播放音频
-						generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+						//generate(strAudioText, 0); // 语音合成
+						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
 						::Sleep(60 * 1000);
 
 						throw std::runtime_error(strAudioText);
@@ -909,8 +910,8 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
 
 					// 播放音频
-					generate(strAudioText, 0); // 语音合成
-					PlaySound(_T("myaudio_0"), NULL, SND_FILENAME | SND_SYNC);
+					// generate(strAudioText, 0); // 语音合成
+					PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
 				}
 			}
 
