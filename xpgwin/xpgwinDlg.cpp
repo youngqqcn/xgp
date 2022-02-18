@@ -525,6 +525,10 @@ exit:
 
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam);
 
+// 监控内部代理服务器
+DWORD  WINAPI  LoopProxyProc(LPVOID  lpParam);
+
+
 
 // 开始监控掉线的矿机
 void CxpgwinDlg::OnBnClickedStart()
@@ -537,6 +541,7 @@ void CxpgwinDlg::OnBnClickedStart()
 	{
 		// 创建监控线程
 		m_hLoopThread = ::CreateThread(NULL, 0, LoopThreadProc, this, 0, NULL);
+		m_hLoopProxy  = ::CreateThread(NULL, 0, LoopProxyProc , this, 0, NULL);
 		m_isStart = true;
 		GetDlgItem(IDSTART)->SetWindowText(_T("监控中..."));
 		GetDlgItem(IDSTART)->EnableWindow(0);
@@ -640,6 +645,97 @@ BOOL CheckVPNConnection()
 	return FALSE;
 }
 
+//
+//bool CheckOfflineAtHiveon(string address, string strWorkerName)
+//{
+//	// example: https://hiveon.net/api/v1/stats/miner/c8eb99d5db1ec8ed483bf36cf548d096c063b4b2/ETH/workers
+//	httplib::Client cli("https://hiveon.net");
+//	string endpoint = fmt::format("/api/v1/stats/miner/{}/ETH/workers", address);
+//	auto res = cli.Get(endpoint.c_str());
+//	if (!res || 200 != res->status)
+//	{
+//	}
+//
+//
+//	// 转换为json
+//	nlohmann::json d = nlohmann::json::parse(res->body);
+//	auto workers = d["workers"];
+//	if (workers.end() == workers.find(strWorkerName)) {
+//		return true;
+//	}
+//
+//	auto d = workers[strWorkerName];
+//	auto lt = d["sharesStatusStats"]["lastShareDt"];
+//
+//	string trimDatetime = lt; // datetime.substr(0, datetime.find('.'));
+//	std::istringstream input(trimDatetime);
+//	date::sys_seconds tp;
+//	input >> date::parse("%FT%T", tp);
+//	auto last = chrono::time_point_cast<std::chrono::seconds>(tp);
+//	auto now = chrono::time_point_cast<std::chrono::seconds>(chrono::system_clock::now());
+//	auto du = now - last;
+//	if (int64_t(10) * 60 < du.count() )
+//	{
+//		return true;
+//	}
+//
+//	return false;
+//}
+
+// 监控内部代理服务器
+DWORD  WINAPI  LoopProxyProc(LPVOID  lpParam)
+{
+	using namespace nlohmann;
+	CxpgwinDlg* pDlg = static_cast<CxpgwinDlg*>(lpParam);
+
+	httplib::Client cli("node3-e.ufssue.com", 9973);
+	while (1)
+	{
+		try
+		{
+			auto res  = cli.Get("/offline");
+			if (!res || 200 != res->status)
+			{
+				CString cstrMsg = _T("请求香港代理服务器失败，请检查服务器的9973端口是否正常");
+				pDlg->GetDlgItem(IDC_EDIT_PROXY)->SetWindowText(cstrMsg);
+				// 播放音频
+				PlaySound(_T("biubiu"), NULL, SND_FILENAME | SND_SYNC);
+				::Sleep(1000 * 10);
+				continue;
+			}
+	
+			// 转换为json
+			string strResult;
+			json d = json::parse(res->body);
+			if (d.empty())
+			{
+				::Sleep(1000 * 10);
+				CString cstrMsg = _T("恭喜！所有代理正常！");
+				pDlg->GetDlgItem(IDC_EDIT_PROXY)->SetWindowText(cstrMsg);
+				continue;
+			}
+
+			for (int i = 0; i < d.size(); i++)
+			{
+				strResult += d[i] + " 挂了！\r\n";
+			}
+			pDlg->GetDlgItem(IDC_EDIT_PROXY)->SetWindowText(StringToLPCWSTR(strResult));
+
+			// 播放音频
+			PlaySound(_T("biubiu"), NULL, SND_FILENAME | SND_SYNC);
+		}
+		catch (std::exception& e)
+		{
+			string strErrMsg = e.what();
+			pDlg->GetDlgItem(IDC_EDIT_PROXY)->SetWindowText(StringToLPCWSTR(strErrMsg));
+			// 播放音频
+			PlaySound(_T("biubiu"), NULL, SND_FILENAME | SND_SYNC);
+		}
+
+		::Sleep(1000 * 10);
+	}
+
+}
 
 
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
@@ -647,6 +743,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 	using namespace nlohmann;
 	CxpgwinDlg  *pDlg = static_cast<CxpgwinDlg*>(lpParam);
 	httplib::Client f2poolCli("https://api.f2pool.com");
+
 
 
 	while (1)
@@ -825,18 +922,18 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					{
 						if (isETH) // 以太坊矿机
 						{
-							// 统计3060Ti 和 小钢炮 离线数量
-							//if (workerName.find("580") != string::npos) {
-							//	nOfflineXgpCount++;
-							//}
-							if (workerName.find("3060") != string::npos || workerName.find("1660") != string::npos) {
-								nOffline3060TiCount++;
-							}
-							else if (workerName.find("a10u") != string::npos) {
-								nA10UofflineCount++;
-							}
-							else {
-								nOfflineXgpCount++;
+							// 检查机子是否再hiveon也是离线
+							//if (CheckOfflineAtHiveon(address, workerName))
+							{
+								if (workerName.find("3060") != string::npos || workerName.find("1660") != string::npos) {
+									nOffline3060TiCount++;
+								}
+								else if (workerName.find("a10u") != string::npos) {
+									nA10UofflineCount++;
+								}
+								else {
+									nOfflineXgpCount++;
+								}
 							}
 						}
 						else // BTC 矿机
@@ -931,6 +1028,7 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 		}
 	}
 
+
 	return 0;
 }
 
@@ -997,6 +1095,8 @@ void CxpgwinDlg::OnSize(UINT nType, int cx, int cy)
 		IDC_STATIC9,
 		IDC_STATICHIVEOS,
 		IDC_STATICARGS,
+		IDC_EDIT_PROXY,
+		IDC_STATIC
 	};
 	for (int i = 0; i < dlgitem.size(); i++)//因为是多个控件，所以这里用了循环
 	{

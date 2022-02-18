@@ -37,6 +37,7 @@ protected:
 	CString m_cstrAccessToken;
 	std::atomic<bool> m_isStart;
 	HANDLE  m_hLoopThread;
+	HANDLE  m_hLoopProxy;
 	HICON m_hIcon;
 	
 	CRect m_wndRect;//保存窗口尺寸
