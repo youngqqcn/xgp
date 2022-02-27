@@ -641,6 +641,38 @@ BOOL CheckVPNConnection()
 }
 
 
+bool WxPusher(string strMsg, string &strErrMsg)
+{
+	try
+	{
+		nlohmann::json jreq;
+		jreq["msg_text"] = strMsg;
+		httplib::Client wxpusher("127.0.0.1", 5000);
+
+		auto res = wxpusher.Post("sendmsg", nlohmann::to_string(jreq), "application/json");
+		if (res->status != 200)
+		{
+			strErrMsg = res->body;
+			return false;
+		}
+		auto j = nlohmann::json::parse(res->body);
+		if (j["err_code"] != 0)
+		{
+			strErrMsg = j["err_msg"];
+			return false;
+		}
+	}
+	catch (std::exception &e)
+	{
+		strErrMsg = e.what();
+		return false;
+	}
+
+
+	return true;
+
+}
+
 
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 {
@@ -881,33 +913,33 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 					cstrOutput += CString(name.second.c_str()) + _T("\r\n");
 				}
 
-				pOutput->SetWindowText(cstrOutput);
-
 				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0 || nA10UofflineCount > 0 || nAntMinerCount > 0)
 				{
-					string strAudioText = "请注意！";
-					if (nOffline3060TiCount > 0) {
+					//// 微信推送掉线通知
+					//string strWechatPushText = "---WARNING!---\r\n";
+					//if (nOffline3060TiCount > 0) {
+					//	strWechatPushText += fmt::format("{}-RTX3060Ti\r\n", nOffline3060TiCount);
+					//}
+					//if (nA10UofflineCount > 0) {
+					//	strWechatPushText += fmt::format("{}-A10\r\n", nA10UofflineCount);
+					//}
+					//if (nOfflineXgpCount > 0) {
+					//	strWechatPushText += fmt::format("{}-RX588\r\n", nOfflineXgpCount);
+					//}
+					//if (nAntMinerCount > 0) {
+					//	strWechatPushText += fmt::format("{}-S19\r\n", nAntMinerCount);
+					//}
+					//// strWechatPushText += ts;
+					//strWechatPushText  += "-------------\n";
 
-						string strChineseCount = convertInt2Chinese(nOffline3060TiCount);
-						strAudioText += fmt::format("有{}台3060钛，有{}台3060钛,",
-							strChineseCount, strChineseCount);
-					}
-					if (nA10UofflineCount > 0) {
-						string strChineseCount = convertInt2Chinese(nA10UofflineCount);
-						strAudioText += fmt::format("有{}台芯动A10，有{}台芯动A10,",
-							strChineseCount, strChineseCount);
-					}
-					if (nOfflineXgpCount > 0) {
-						string strChineseCount = convertInt2Chinese(nOfflineXgpCount);
-						strAudioText += fmt::format("有{}台小钢炮，有{}台小钢炮，",
-							strChineseCount, strChineseCount);
-					}
-					if (nAntMinerCount > 0) {
-						string strChineseCount = convertInt2Chinese(nAntMinerCount);
-						strAudioText += fmt::format("有{}台蚂蚁S19，有{}台蚂蚁S19，",
-							strChineseCount, strChineseCount);
-					}
-					strAudioText += fmt::format("离线超过{}分钟，请及时处理！", convertInt2Chinese(nOfflineTime));
+					//string strErrMsg;
+					//if (!WxPusher(strWechatPushText, strErrMsg))
+					//{
+					//	cstrOutput += _T("\r\n微信推送失败!");
+					//	cstrOutput += StringToLPCWSTR(strErrMsg);
+					//}
+
+					pOutput->SetWindowText(cstrOutput);
 
 					// 播放音频
 					// generate(strAudioText, 0); // 语音合成
