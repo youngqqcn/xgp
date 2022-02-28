@@ -189,26 +189,26 @@ BOOL CxpgwinDlg::OnInitDialog()
 	GetDlgItem(IDC_OFFTIME)->SetWindowText(_T("15")); // 离线时间阈值，默认15分钟
 	GetDlgItem(IDC_GAPTIME)->SetWindowText(_T("10"));  // 每次报警间隔时间，默认10分钟
 
-	// 设置监控钱包地址
-	CString cstrAddress;
-	cstrAddress += _T("0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2\r\n"); // w
-	cstrAddress += _T("0xa71f66a1faa36ae54ef8c3141bbdfc0aae3791ee\r\n"); // d
-	cstrAddress += _T("0x20f72f9bad243ac4d49101a29aa1cb180b933930\r\n"); // y
-	//cstrAddress += _T("0x58a4c426df0804c5f852b4aee56e659c4453f8f7\r\n"); // heihei 
-	cstrAddress += _T("heizai\r\n");
-	cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
-	cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
-	cstrAddress += _T("0xcc26c8ffd21aa299929db453ab9014d560143ef6\r\n"); // bg
-	//cstrAddress += _T("0x789bd97fcec67912a427025ac59a1c45b506980f\r\n"); // wan
-	cstrAddress += _T("z18978645557\r\n");  // wan
+	//// 设置监控钱包地址
+	//CString cstrAddress;
+	//// cstrAddress += _T("0xc8eb99d5db1ec8ed483bf36cf548d096c063b4b2\r\n"); // w
+	//cstrAddress += _T("0xa71f66a1faa36ae54ef8c3141bbdfc0aae3791ee\r\n"); // d
+	//cstrAddress += _T("0x20f72f9bad243ac4d49101a29aa1cb180b933930\r\n"); // y
+	////cstrAddress += _T("0x58a4c426df0804c5f852b4aee56e659c4453f8f7\r\n"); // heihei 
+	//cstrAddress += _T("heizai\r\n");
+	//cstrAddress += _T("0xa1647b564b3c1e9617d431100fff7ea8740fb62b\r\n"); // c
+	//cstrAddress += _T("0x6b41d273ebe0cfe3c1c54253aa251a0b5c57e06d\r\n"); // z
+	//cstrAddress += _T("0xcc26c8ffd21aa299929db453ab9014d560143ef6\r\n"); // bg
+	////cstrAddress += _T("0x789bd97fcec67912a427025ac59a1c45b506980f\r\n"); // wan
+	//cstrAddress += _T("z18978645557\r\n");  // wan
 
-	{
-		CString cstrBtcAddr = _T("shishishu\r\n"); // btc
-		cstrAddress += cstrBtcAddr; 
-		m_btcAddrs.insert(cstrBtcAddr.Trim());
-	}
+	//{
+	//	CString cstrBtcAddr = _T("shishishu\r\n"); // btc
+	//	cstrAddress += cstrBtcAddr; 
+	//	m_btcAddrs.insert(cstrBtcAddr.Trim());
+	//}
 
-	GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
+	//GetDlgItem(IDC_ADDRESS)->SetWindowText(cstrAddress);
 
 
 
@@ -641,44 +641,12 @@ BOOL CheckVPNConnection()
 }
 
 
-bool WxPusher(string strMsg, string &strErrMsg)
-{
-	try
-	{
-		nlohmann::json jreq;
-		jreq["msg_text"] = strMsg;
-		httplib::Client wxpusher("127.0.0.1", 5000);
-
-		auto res = wxpusher.Post("sendmsg", nlohmann::to_string(jreq), "application/json");
-		if (res->status != 200)
-		{
-			strErrMsg = res->body;
-			return false;
-		}
-		auto j = nlohmann::json::parse(res->body);
-		if (j["err_code"] != 0)
-		{
-			strErrMsg = j["err_msg"];
-			return false;
-		}
-	}
-	catch (std::exception &e)
-	{
-		strErrMsg = e.what();
-		return false;
-	}
-
-
-	return true;
-
-}
-
-
 DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 {
 	using namespace nlohmann;
 	CxpgwinDlg  *pDlg = static_cast<CxpgwinDlg*>(lpParam);
-	httplib::Client f2poolCli("https://api.f2pool.com");
+	//httplib::Client f2poolCli("https://api.f2pool.com");
+	httplib::Client myhostcli("http://wxapp.video.eqlky.com:13008");
 
 
 	while (1)
@@ -737,168 +705,80 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 
 		try
 		{
-			vector<pair<int, string>>  vctOfflineWorkers;
-			int nOffline3060TiCount = 0; // 掉线的3060Ti
-			int nOfflineXgpCount = 0; // 掉线的小钢炮数量
-			int nA10UofflineCount = 0; // 掉线的A10U芯片机
-			int nAntMinerCount = 0; // 掉线的蚂蚁矿机
+			vector<string>  vctOfflineWorkers;
+			auto res = myhostcli.Get("/offline");
 
-			const int IDX_NAME = 0; // 矿工名
-			const int IDX_TIME = 6; // 最后提交时间
-
-			int nIndex = 0;
-			for (; nIndex < vctWalletAddress.size(); )
+			if (!res || 200 != res->status)
 			{
-				string address = vctWalletAddress[nIndex];
-				string endpoint;
-				bool isETH = true;
-				if (pDlg->m_btcAddrs.end() == pDlg->m_btcAddrs.find(CString(address.c_str()))  ) {
-					endpoint = fmt::format("/eth/{}", address);
-				}
-				else {
-					// 鱼池子账户
-					endpoint = fmt::format("/bitcoin/{}", address);
-					isETH = false;
-				}
-
-				auto res = f2poolCli.Get(endpoint.c_str());
-				if (!res || 200 != res->status)
+				// 检查网关是否通
+				string strGatewayIp = "192.168.1.1";
+				if (FALSE == CheckIPReachable(strGatewayIp.c_str()))
 				{
-					// 检查网关是否通
-					string strGatewayIp = "192.168.1.1";
-					if (FALSE == CheckIPReachable(strGatewayIp.c_str()))
-					{
-						// 网关不通
-						string tipText = fmt::format("请注意, 网络异常:与网关{}的连接不通, 请检查本机网线是否插好!", strGatewayIp);
-						pOutput->SetWindowText(StringToLPCWSTR(tipText));
-						string strAudioText = "请注意, 网络异常: 拼不通网关,请检查本机网线是否插好!";
+					// 网关不通
+					string tipText = fmt::format("请注意, 网络异常:与网关{}的连接不通, 请检查本机网线是否插好!", strGatewayIp);
+					pOutput->SetWindowText(StringToLPCWSTR(tipText));
+					string strAudioText = "请注意, 网络异常: 拼不通网关,请检查本机网线是否插好!";
 
-						// 播放音频
-						// generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
-						::Sleep(60 * 1000);
+					// 播放音频
+					// generate(strAudioText, 0); // 语音合成
+					PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
+					::Sleep(60 * 1000);
 
-						throw std::runtime_error(fmt::format("网络异常: 拼不通网关,{}, 请检查网线是否插好!", strGatewayIp));
-					}
-
-					// 检查网络连接是否正常
-					if (FALSE == CheckIPReachable("8.8.8.8") && FALSE == CheckIPReachable("8.8.8.8"))
-					{
-						// 网络问题
-						pOutput->SetWindowText(_T( "请注意，网络异常: 连接外网失败，请联系管理员检查网络！"));
-						string strAudioText = "请注意，网络异常: 连接外网失败, 请联系管理员检查网络！";
-
-						// 播放音频
-						//generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
-						::Sleep(60 * 1000);
-
-						throw std::runtime_error("网络异常: 连接外网失败, 请联系管理员检查网络！");
-					}
-
-					// 检查VPN连接
-					if (!CheckVPNConnection())
-					{
-						// VPN不通
-						pOutput->SetWindowText(_T("请注意, 网络异常:没有翻墙, 请重新连接香港VPN!"));
-						string strAudioText = "请注意, 网络异常:没有翻墙, 请重新连接香港VPN!";
-
-						// 播放音频
-						//generate(strAudioText, 0); // 语音合成
-						PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
-						::Sleep(60 * 1000);
-
-						throw std::runtime_error(strAudioText);
-					}
-
-
-					::Sleep(2 * 1000);
-					continue;
+					throw std::runtime_error(fmt::format("网络异常: 拼不通网关,{}, 请检查网线是否插好!", strGatewayIp));
 				}
-					
 
-				// 转换为json
-				json d = json::parse(res->body);
-				auto workers = d["workers"];
-
-				for (int i = 0; i < workers.size(); i++)
+				// 检查网络连接是否正常
+				if (FALSE == CheckIPReachable("8.8.8.8") && FALSE == CheckIPReachable("8.8.8.8"))
 				{
-					string workerName = workers[i][IDX_NAME];
-					//if (workerName.find("lai") != string::npos || workerName.find("rong") != string::npos
-					//	|| workerName.find("sheng") != string::npos || workerName.find("xi") != string::npos
-					//	|| workerName.find("f") == 0 /* || workerName.find("xgp") != string::npos*/
-					//	|| workerName.find("dataland") != string::npos || workerName.find("dland") != string::npos
-					//	|| workerName.find("sapphire") != string::npos
-					//	|| workerName.find("baipai") != string::npos
-					//	|| workerName.find("panda") != string::npos
-					//	|| workerName.find("x588x8") != string::npos
-					//	|| workerName.find("usb001") != string::npos
-					//	|| workerName.find("wz2019") != string::npos
-					//	)
-					//{
-					//	continue;
-					//}
-					if (workerName.empty() || " " == workerName || setExceptWorker.find(workerName) != setExceptWorker.end())
-					{
-						// 要排除的机子,直接跳过
-						continue;
-					}
+					// 网络问题
+					pOutput->SetWindowText(_T("请注意，网络异常: 连接外网失败，请联系管理员检查网络！"));
+					string strAudioText = "请注意，网络异常: 连接外网失败, 请联系管理员检查网络！";
 
-					string datetime = workers[i][IDX_TIME];
-					string trimDatetime = datetime.substr(0, datetime.find('.'));
-					std::istringstream input(trimDatetime);
-					date::sys_seconds tp;
-					input >> date::parse("%FT%T", tp);
-					auto last = chrono::time_point_cast<std::chrono::seconds>(tp);
-					auto du = now - last;
+					// 播放音频
+					//generate(strAudioText, 0); // 语音合成
+					PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
+					::Sleep(60 * 1000);
 
-					// 离线超过分钟
-					if (int64_t(nOfflineTime) * 60 < du.count() && du.count() < 24 * 3600)
-					{
-						if (isETH) // 以太坊矿机
-						{
-							// 统计3060Ti 和 小钢炮 离线数量
-							//if (workerName.find("580") != string::npos) {
-							//	nOfflineXgpCount++;
-							//}
-							if (workerName.find("3060") != string::npos || workerName.find("1660") != string::npos) {
-								nOffline3060TiCount++;
-							}
-							else if (workerName.find("a10u") != string::npos) {
-								nA10UofflineCount++;
-							}
-							else {
-								nOfflineXgpCount++;
-							}
-						}
-						else // BTC 矿机
-						{
-							nAntMinerCount++;
-						}
-
-
-						if (du.count() < 60 * 60)
-						{
-							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + " " + fmt::format(", 离线{}分钟！", int(du.count() / 60))));
-						}
-						else if (3600 <= du.count())
-						{
-							char buf[100] = { 0 };
-							memset(buf, 0, sizeof(buf));
-							sprintf(buf, "%.1f", du.count() / 3600.0);
-							vctOfflineWorkers.push_back(make_pair<int, string>(du.count(), "[" + ts + "] - " + workerName + "，离线" + string(buf) + "小时！"));
-						}
-					}
-					// 离线超过24小时的,不进行报警
+					throw std::runtime_error("网络异常: 连接外网失败, 请联系管理员检查网络！");
 				}
-			
-				nIndex++;
+
+				//// 检查VPN连接
+				//if (!CheckVPNConnection())
+				//{
+				//	// VPN不通
+				//	pOutput->SetWindowText(_T("请注意, 网络异常:没有翻墙, 请重新连接香港VPN!"));
+				//	string strAudioText = "请注意, 网络异常:没有翻墙, 请重新连接香港VPN!";
+
+				//	// 播放音频
+				//	//generate(strAudioText, 0); // 语音合成
+				//	PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
+				//	::Sleep(60 * 1000);
+
+				//	throw std::runtime_error(strAudioText);
+				//}
+
+
+				::Sleep(2 * 1000);
+				continue;
 			}
 
-			// 最近掉线的排在前面
-			sort(vctOfflineWorkers.begin(), vctOfflineWorkers.end(), [](pair<int, string>& a, pair<int, string>& b) {
-				return a.first < b.first;
-				});
+
+			// 转换为json
+			json d = json::parse(res->body);
+			auto workers = d["data"];
+
+			for (int i = 0; i < workers.size(); i++)
+			{
+				string workerName = workers[i];
+				if (workerName.empty() || " " == workerName || setExceptWorker.find(workerName) != setExceptWorker.end())
+				{
+					// 要排除的机子,直接跳过
+					continue;
+				}
+				vctOfflineWorkers.push_back(workerName);
+			}
+
+
 
 			CString cstrOutput;
 			if (vctOfflineWorkers.empty())
@@ -910,41 +790,15 @@ DWORD  WINAPI  LoopThreadProc(LPVOID  lpParam)
 			{
 				for (auto name : vctOfflineWorkers)
 				{
-					cstrOutput += CString(name.second.c_str()) + _T("\r\n");
+					cstrOutput += StringToLPCWSTR(name);
+					cstrOutput += _T("\r\n");
 				}
 
-				if (nOffline3060TiCount > 0 || nOfflineXgpCount > 0 || nA10UofflineCount > 0 || nAntMinerCount > 0)
-				{
-					//// 微信推送掉线通知
-					//string strWechatPushText = "---WARNING!---\r\n";
-					//if (nOffline3060TiCount > 0) {
-					//	strWechatPushText += fmt::format("{}-RTX3060Ti\r\n", nOffline3060TiCount);
-					//}
-					//if (nA10UofflineCount > 0) {
-					//	strWechatPushText += fmt::format("{}-A10\r\n", nA10UofflineCount);
-					//}
-					//if (nOfflineXgpCount > 0) {
-					//	strWechatPushText += fmt::format("{}-RX588\r\n", nOfflineXgpCount);
-					//}
-					//if (nAntMinerCount > 0) {
-					//	strWechatPushText += fmt::format("{}-S19\r\n", nAntMinerCount);
-					//}
-					//// strWechatPushText += ts;
-					//strWechatPushText  += "-------------\n";
+				pOutput->SetWindowText(cstrOutput);
 
-					//string strErrMsg;
-					//if (!WxPusher(strWechatPushText, strErrMsg))
-					//{
-					//	cstrOutput += _T("\r\n微信推送失败!");
-					//	cstrOutput += StringToLPCWSTR(strErrMsg);
-					//}
-
-					pOutput->SetWindowText(cstrOutput);
-
-					// 播放音频
-					// generate(strAudioText, 0); // 语音合成
-					PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
-				}
+				// 播放音频
+				// generate(strAudioText, 0); // 语音合成
+				PlaySound(_T("didi"), NULL, SND_FILENAME | SND_SYNC);
 			}
 
 			::Sleep(1000 * 60 * nGapTime);
