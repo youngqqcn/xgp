@@ -36,3 +36,5 @@
 
 *.aps
 xpgwin/xpgwin.vcxproj.user
+
+.vs
