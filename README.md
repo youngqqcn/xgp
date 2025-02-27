@@ -2,7 +2,7 @@
 小钢炮
 
 
-![](./xgp.png)
+![](./xgp.PNG)
 
 
 ## visual studio 配置
